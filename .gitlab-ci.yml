@@ -1,0 +1,71 @@
+image:
+  name: hashicorp/terraform:0.12.20
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+stages:
+  - validate
+  - plan
+  - apply
+  - config
+  - destroy
+
+validate:
+  stage: validate
+  script:
+    - rm -rf .terraform
+    - terraform --version
+    - terraform init
+    - terraform validate
+
+plan:
+  stage: plan
+  script:
+    - rm -rf .terraform
+    - terraform --version
+    - terraform init
+    - terraform plan
+  dependencies:
+    - validate
+
+apply:
+  stage: apply
+  script:
+    - rm -rf .terraform
+    - terraform --version
+    - terraform init
+    - terraform apply --auto-approve
+  artifacts:
+    paths:
+    - kubeconfig
+    expire_in: 1 day
+  dependencies:
+    - plan
+
+config: 
+  stage: config
+  image: 
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script: 
+    - kubectl -h
+    #- kubectl --kubeconfig kubeconfig  get cs 
+    #- kubectl --kubeconfig kubeconfig  get nodes
+  artifacts:
+    paths:
+    - kubeconfig
+    expire_in: 1 day
+
+destroy:
+    stage: destroy
+    script:
+      - rm -rf .terraform
+      - terraform --version
+      - terraform init
+      - terraform destroy -force
+    dependencies:
+      - apply
+#    when: manual
+#    allow_failure: false
+ 
