@@ -1,0 +1,93 @@
+name: CICD for EKS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:0.12.20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Terraform Validate
+        run: |
+          rm -rf .terraform
+          terraform --version
+          terraform init
+          terraform validate
+
+  plan:
+    needs: validate
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:0.12.20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Terraform Plan
+        run: |
+          rm -rf .terraform
+          terraform --version
+          terraform init
+          terraform plan
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:0.12.20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Terraform Apply
+        run: |
+          rm -rf .terraform
+          terraform --version
+          terraform init
+          terraform apply --auto-approve
+      - name: Upload kubeconfig
+        uses: actions/upload-artifact@v2
+        with:
+          name: kubeconfig
+          path: kubeconfig
+          retention-days: 1
+
+  config:
+    needs: apply
+    runs-on: ubuntu-latest
+    container:
+      image: bitnami/kubectl:latest
+      options: --entrypoint ''
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Download kubeconfig
+        uses: actions/download-artifact@v2
+        with:
+          name: kubeconfig
+          path: .
+      - name: Kubectl Command
+        run: kubectl -h
+      # Uncomment the following lines to enable kubectl commands
+      # - run: kubectl --kubeconfig kubeconfig get cs
+      # - run: kubectl --kubeconfig kubeconfig get nodes
+
+  destroy:
+    needs: apply
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:0.12.20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Terraform Destroy
+        run: |
+          rm -rf .terraform
+          terraform --version
+          terraform init
+          terraform destroy -force
